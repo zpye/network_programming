@@ -13,9 +13,11 @@
 const char* kIP_ADDRESS = "127.0.0.1";
 const int kPORT = 8888;
 
-char buf[MAXBUFFER];
+char std_buf[MAXBUFFER];
+char socket_buf[MAXBUFFER];
 
 void Read(int epollfd, int fd, int socketfd) {
+    char* buf = ((fd == STDIN_FILENO)?(std_buf):(socket_buf));
     int nread = read(fd, buf, MAXBUFFER);
     if(nread == -1) {
         perror("read error");
@@ -25,15 +27,17 @@ void Read(int epollfd, int fd, int socketfd) {
         close(fd);
     } else {
         if(fd == STDIN_FILENO) {
+            DeleteEvent(epollfd, fd, EPOLLIN);
             AddEvent(epollfd, socketfd, EPOLLOUT);
         } else {
-            DeleteEvent(epollfd, socketfd, EPOLLIN);
+            DeleteEvent(epollfd, fd, EPOLLIN);
             AddEvent(epollfd, STDOUT_FILENO, EPOLLOUT);
         }
     }
 }
 
 void Write(int epollfd, int fd, int socketfd) {
+    char* buf = ((fd == STDOUT_FILENO)?(socket_buf):(std_buf));
     int nwrite = write(fd, buf, strlen(buf));
     if(nwrite == -1) {
         perror("write error");
@@ -41,6 +45,7 @@ void Write(int epollfd, int fd, int socketfd) {
     } else {
         if(fd == STDOUT_FILENO) {
             DeleteEvent(epollfd, fd, EPOLLOUT);
+            AddEvent(epollfd, STDIN_FILENO, EPOLLIN);
         } else {
             ModifyEvent(epollfd, fd, EPOLLIN);
         }
